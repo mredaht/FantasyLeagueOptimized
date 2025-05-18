@@ -128,28 +128,34 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        uint256 totalJugadores = fantasyPlayerNFT.getNextTokenId();
+        uint256 total = fantasyPlayerNFT.getNextTokenId();
         delete jugadores;
-        for (uint256 i = 0; i < totalJugadores; i++) {
-            JugadorStruct.Jugador memory p = fantasyPlayerNFT.getPlayer(i);
-            jugadores.push(
-                JugadorStruct.Jugador({
-                    id: p.id,
-                    nombre: p.nombre,
-                    equipo: p.equipo,
-                    puntuacion: 0,
-                    goles: 0,
-                    asistencias: 0,
-                    paradas: 0,
-                    penaltisParados: 0,
-                    despejes: 0,
-                    minutosJugados: 0,
-                    porteriaCero: false,
-                    tarjetasAmarillas: 0,
-                    tarjetasRojas: 0,
-                    ganoPartido: false
-                })
-            );
+
+        for (uint256 i = 0; i < total; i++) {
+            try fantasyPlayerNFT.ownerOf(i) returns (address) {
+                // El token existe, podemos copiarlo
+                JugadorStruct.Jugador memory p = fantasyPlayerNFT.getPlayer(i);
+                jugadores.push(
+                    JugadorStruct.Jugador({
+                        id: p.id,
+                        nombre: p.nombre,
+                        equipo: p.equipo,
+                        puntuacion: 0,
+                        goles: 0,
+                        asistencias: 0,
+                        paradas: 0,
+                        penaltisParados: 0,
+                        despejes: 0,
+                        minutosJugados: 0,
+                        porteriaCero: false,
+                        tarjetasAmarillas: 0,
+                        tarjetasRojas: 0,
+                        ganoPartido: false
+                    })
+                );
+            } catch {
+                // hueco: token i aún no existe; lo saltamos
+            }
         }
     }
 
