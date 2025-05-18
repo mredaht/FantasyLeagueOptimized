@@ -2,26 +2,24 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "../src/FantasyPlayerNFT.sol";
-import "../src/FantasyLeague.sol";
+import {FantasyLeague} from "../src/FantasyLeague.sol";
 
-contract DeployFantasyLeague is Script {
+contract DeployLeague is Script {
     function run() external {
-        // Leer clave privada desde .env
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address nft = vm.envAddress("NFT_CONTRACT_ADDRESS");
+        address oracle = vm.envAddress("ORACLE_ADDRESS");
 
-        // Iniciar la sesión de broadcasting
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast(); // usa PRIVATE_KEY
+        FantasyLeague league = new FantasyLeague(nft);
 
-        // Deploy del contrato de NFTs
-        FantasyPlayerNFT playerNFT = new FantasyPlayerNFT();
+        // concede ORACLE_ROLE
+        bytes32 ROLE = league.ORACLE_ROLE();
+        league.grantRole(ROLE, oracle);
 
-        // Deploy de la liga con la dirección del contrato NFT
-        FantasyLeague league = new FantasyLeague(address(playerNFT));
-
+        // importa los jugadores ya minteados
+        league.cargarJugadoresDisponibles();
         vm.stopBroadcast();
 
-        console.log("FantasyPlayerNFT deployed at:", address(playerNFT));
-        console.log("FantasyLeague deployed at:", address(league));
+        console2.log("FantasyLeague:", address(league));
     }
 }
