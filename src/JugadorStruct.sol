@@ -3,20 +3,19 @@ pragma solidity ^0.8.19;
 
 library JugadorStruct {
     struct Jugador {
-        uint256 id; // Identificador único del jugador
+        uint256 id;
         string nombre;
         string equipo;
-        uint256 puntuacion; //Puntuacion total del jugador
-        // Nuevos campos para registrar estadísticas
-        uint256 goles;
-        uint256 asistencias;
-        uint256 paradas;
-        uint256 penaltisParados;
-        uint256 despejes;
-        uint256 minutosJugados;
+        uint16 puntuacion;
+        uint8 goles;
+        uint8 asistencias;
+        uint8 paradas;
+        uint8 penaltisParados;
+        uint8 despejes;
+        uint8 minutosJugados;
         bool porteriaCero;
-        uint256 tarjetasAmarillas;
-        uint256 tarjetasRojas;
+        uint8 tarjetasAmarillas;
+        uint8 tarjetasRojas;
         bool ganoPartido;
     }
 }
