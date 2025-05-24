@@ -2,44 +2,39 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import {FantasyPlayerNFT} from "../src/FantasyPlayerNFT.sol";
-import {SavePlayers} from "./SavePlayers.s.sol";
+import "../src/FantasyPlayerNFT.sol"; // ajusta el path si es distinto
+import "./SavePlayers.s.sol"; // la librería con los 133 jugadores
 
-contract MintBatch is Script {
-    uint256 constant BATCH_SIZE = 20;
-
+contract MintMissing is Script {
     function run() external {
-        /* ─── 1. Credenciales & contratos ─────────────────────────── */
-        uint256 pk = vm.envUint("PRIVATE_KEY"); // tu clave
-        address nftAddr = vm.envAddress("NFT_CONTRACT_ADDRESS");
-        address receiver = vm.addr(pk); // dueño de los NFT
+        /*─────────────────── Configuración via env ───────────────────*/
+        uint256 pk = vm.envUint("PRIVATE_KEY"); // clave del owner del NFT
+        address nftAddr = vm.envAddress("NFT_CONTRACT_ADDRESS"); // contrato FantasyPlayerNFT
+        address receiver = vm.envAddress("RECEIVER"); // quién recibe los nuevos NFTs
 
+        /*─────────────────── Preparación ─────────────────────────────*/
         FantasyPlayerNFT nft = FantasyPlayerNFT(nftAddr);
-        SavePlayers.PlayerData[] memory p = SavePlayers.getPlayers();
+        SavePlayers.PlayerData[] memory players = SavePlayers.getPlayers();
+        uint256 minted = nft.getNextTokenId();
 
-        /* ─── 2. Elegir de dónde a dónde mintear ──────────────────── */
-        uint256 start = vm.envOr("START_INDEX", nft.getNextTokenId());
-        uint256 end = start + BATCH_SIZE;
-        if (end > p.length) end = p.length; // no pasar del array
+        console2.log("Ya hay creados :", minted);
+        console2.log("Total objetivo :", players.length);
 
-        require(start < end, "Nada que mintear (START_INDEX >= total)");
+        require(minted <= players.length, "Hay mas mintados que en la lista");
 
-        /* ─── 3. Mint en broadcast ────────────────────────────────── */
+        /*─────────────────── Mint de los que faltan ─────────────────*/
         vm.startBroadcast(pk);
 
-        for (uint256 i = start; i < end; ++i) {
-            // salta entradas vacías (por si amplías la lista en el futuro)
-            if (bytes(p[i].name).length == 0) continue;
-
-            try nft.mintPlayer(receiver, p[i].name, p[i].team) {
-                console2.log(" Mint %s (%s) id %d", p[i].name, p[i].team, i);
-            } catch Error(string memory reason) {
-                console2.log(" Fallo id %d  %s", i, reason);
-            } catch {
-                console2.log(" Fallo id %d (error desconocido)", i);
-            }
+        for (uint256 i = 79; i < 130; i++) {
+            nft.mintPlayer(receiver, players[i].name, players[i].team);
+            console2.log("Mint", i, players[i].name, players[i].team);
         }
 
         vm.stopBroadcast();
+
+        console2.log(
+            " Proceso completado. NFTs totales:",
+            nft.getNextTokenId()
+        );
     }
 }

@@ -11,5 +11,6 @@ out/
 docs/
 
 # Dotenv file
+mint79-130.sh
 .env
 posibleuso.txt
