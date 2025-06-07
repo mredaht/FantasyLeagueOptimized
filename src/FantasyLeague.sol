@@ -22,6 +22,20 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
         JornadaEnCurso,
         JornadaFinalizada
     }
+    /*───────────────  CUSTOM ERRORS  ───────────────*/
+    error NotEnrolled();
+    error InvalidPlayerId(uint256 id);
+    error PlayerAlreadyPicked(uint256 id);
+    error WrongStatus(Status current, Status expected);
+    error PlayerDoesNotExist(uint256 id);
+    error LengthMismatch();
+    error WrongEntryFee(uint256 sent, uint256 required);
+    error AlreadyEnrolled();
+    error TeamAlreadyPicked();
+    error EmptyTeamName();
+    error TeamNotRegistered();
+    error NoWinnerFound();
+    error TransferFailed();
 
     /*────────────────────── STRUCTS ─────────────────────*/
     struct Equipo {
@@ -69,7 +83,7 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
 
     /*────────────────────── MODIFIERS ───────────────────*/
     modifier onlyInscrito() {
-        require(UsuariosInscritos[msg.sender], "No has pagado la entrada!!");
+        if (!UsuariosInscritos[msg.sender]) revert NotEnrolled();
         _;
     }
 
@@ -79,8 +93,8 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
 
         for (uint256 i; i < len; ) {
             uint256 id = _jugadores[i]; // ← variable local
-            require(id < disponibles, "ID de jugador invalido");
-            require(!jugadorElegido[id], "Jugador ya seleccionado");
+            if (id >= disponibles) revert InvalidPlayerId(id);
+            if (jugadorElegido[id]) revert PlayerAlreadyPicked(id);
             unchecked {
                 ++i;
             }
@@ -89,7 +103,7 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
     }
 
     modifier enEstado(Status _estado) {
-        require(gameStatus == _estado, "Estado invalido para esta accion");
+        if (gameStatus != _estado) revert WrongStatus(gameStatus, _estado);
         _;
     }
 
@@ -218,17 +232,17 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
                 ++i;
             }
         }
-        require(ganador != address(0), "No hay ganador");
+        if (ganador == address(0)) revert NoWinnerFound();
         uint256 premio = (address(this).balance * 80) / 100;
         (bool success, ) = payable(ganador).call{value: premio}("");
-        require(success, "Transferencia al ganador fallida");
+        if (!success) revert TransferFailed();
         emit PremioDistribuido(ganador, premio);
     }
 
     function withdraw() external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
         uint256 retiro = (address(this).balance * 20) / 100;
         (bool success, ) = payable(msg.sender).call{value: retiro}("");
-        require(success, "Transferencia fallida");
+        if (!success) revert TransferFailed();
         emit RetiroDeFondos(msg.sender, retiro);
     }
 
@@ -247,7 +261,7 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
         uint256 _tarjetasRojas,
         bool _ganoPartido
     ) external onlyRole(ORACLE_ROLE) {
-        require(_tokenId < jugadores.length, "Jugador no existe");
+        if (_tokenId >= jugadores.length) revert PlayerDoesNotExist(_tokenId);
         JugadorStruct.Jugador storage j = jugadores[_tokenId];
 
         j.goles = uint8(_goles);
@@ -270,7 +284,7 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
         uint256 _tokenId,
         uint32 data
     ) external onlyRole(ORACLE_ROLE) {
-        require(_tokenId < jugadores.length, "Jugador no existe");
+        if (_tokenId >= jugadores.length) revert PlayerDoesNotExist(_tokenId);
 
         JugadorStruct.Jugador storage j = jugadores[_tokenId];
         _desempaquetarYActualizar(j, data);
@@ -284,8 +298,7 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
         uint256[] calldata ids,
         uint32[] calldata datos
     ) external onlyRole(ORACLE_ROLE) {
-        require(ids.length == datos.length, "Longitudes no coinciden");
-
+        if (ids.length != datos.length) revert LengthMismatch();
         for (uint256 i = 0; i < ids.length; i++) {
             uint256 _tokenId = ids[i];
             uint32 data = datos[i];
@@ -320,11 +333,8 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
     /*────────────────────── PÚBLICO / VIEW ──────────────*/
 
     function pagarEntrada() external payable nonReentrant {
-        require(msg.value == ENTRY_FEE, "La entrada cuesta 0.1 ether");
-        require(
-            !UsuariosInscritos[msg.sender],
-            "Ya estas inscrito en la jornada"
-        );
+        if (msg.value != ENTRY_FEE) revert WrongEntryFee(msg.value, ENTRY_FEE);
+        if (UsuariosInscritos[msg.sender]) revert AlreadyEnrolled();
         UsuariosInscritos[msg.sender] = true;
         emit EntradaPagada(msg.sender);
     }
@@ -333,14 +343,8 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
         string memory _nombreEquipo,
         uint256[5] memory _jugadores
     ) external onlyInscrito jugadoresDisponibles(_jugadores) {
-        require(
-            !equipos[msg.sender].seleccionado,
-            "Ya seleccionaste tus jugadores"
-        );
-        require(
-            bytes(_nombreEquipo).length > 0,
-            "El nombre del equipo no puede estar vacio"
-        );
+        if (equipos[msg.sender].seleccionado) revert TeamAlreadyPicked();
+        if (bytes(_nombreEquipo).length == 0) revert EmptyTeamName();
         for (uint256 i = 0; i < _jugadores.length; i++) {
             jugadorElegido[_jugadores[i]] = true;
         }
@@ -358,7 +362,7 @@ contract FantasyLeague is Ownable, AccessControl, ReentrancyGuard {
     function calcularPuntuacionEquipo(
         address _jugador
     ) public view returns (uint256 total) {
-        require(equipos[_jugador].seleccionado, "El jugador no tiene equipo");
+        if (!equipos[_jugador].seleccionado) revert TeamNotRegistered();
         uint256[5] storage ids = equipos[_jugador].jugadores; // ← storage → memoria
         uint256 len = ids.length;
 
