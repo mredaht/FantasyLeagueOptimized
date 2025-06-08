@@ -3,9 +3,9 @@ pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
 import "../src/FantasyPlayerNFT.sol"; // ajusta el path si es distinto
-import "./SavePlayers.s.sol"; // la librería con los 133 jugadores
+import "./SavePlayers.s.sol"; // la librería con los jugadores
 
-contract MintMissing is Script {
+contract MintPlayers is Script {
     function run() external {
         /*─────────────────── Configuración via env ───────────────────*/
         uint256 pk = vm.envUint("PRIVATE_KEY"); // clave del owner del NFT
